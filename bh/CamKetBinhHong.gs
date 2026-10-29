@@ -57,10 +57,13 @@ function capNhatSoLieu() {
 
 function buildHeader_(sh, r, asof) {
   sh.getRange(1, 1, HEAD_ROWS, NCOL).breakApart();
-  sh.getRange(1, 1, 1, NCOL).merge().setValue('DANH SÁCH KHÁCH HÀNG · ' + r.code + ' · ' + r.nv + ' · NPP BÌNH HỒNG · số liệu đến ' + asof + ' · chỉ hiện KH của thứ hôm nay')
-    .setBackground('#1f7a6b').setFontColor('#ffffff').setFontWeight('bold').setFontSize(12);
-  var c = 1;
-  GROUPS.forEach(function (g) {
+  // hàng 1: A:B = tên NV (luôn hiện khi kéo ngang), C:AF = tiêu đề
+  sh.getRange(1, 1, 1, 2).merge().setValue(r.code + ' · ' + r.nv);
+  sh.getRange(1, 3, 1, NCOL - 2).merge().setValue('DANH SÁCH KHÁCH HÀNG · NPP BÌNH HỒNG · số liệu đến ' + asof + ' · chỉ hiện KH của thứ hôm nay');
+  sh.getRange(1, 1, 1, NCOL).setBackground('#1f7a6b').setFontColor('#ffffff').setFontWeight('bold').setFontSize(12);
+  // hàng 2: nhóm cột; nhóm đầu tách A:B | C:F để cố định được 2 cột
+  var G = [['KHÁCH HÀNG', 2, '#1f7a6b'], ['THÔNG TIN KH', 4, '#1f7a6b']].concat(GROUPS.slice(1)), c = 1;
+  G.forEach(function (g) {
     sh.getRange(2, c, 1, g[1]).merge().setValue(g[0]);
     sh.getRange(2, c, 2, g[1]).setBackground(g[2]).setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
     c += g[1];
@@ -68,7 +71,7 @@ function buildHeader_(sh, r, asof) {
   sh.getRange(2, 7).setValue('CCTB (Đạt ảnh AI)');
   sh.getRange(2, 11).setValue('ĐÃ THỰC HIỆN (đến ' + asof + ')');
   sh.getRange(3, 1, 1, NCOL).setValues([HEAD]).setWrap(true).setVerticalAlignment('middle').setFontSize(9);
-  sh.setRowHeight(3, 46); sh.setFrozenColumns(0); sh.setFrozenRows(HEAD_ROWS);
+  sh.setRowHeight(3, 46); sh.setFrozenRows(HEAD_ROWS); sh.setFrozenColumns(2);
   var W = [90, 190, 55, 40, 60, 45, 95, 95, 95, 95, 60, 65, 65, 65, 65, 75, 80, 80, 40, 40, 40, 40, 70, 40, 45, 45, 40, 55, 60, 60, 115, 160];
   W.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
 }
@@ -109,7 +112,7 @@ function filterToday_(ss) {
     if (hide && start < 0) start = i;
     if (!hide && start >= 0) { sh.hideRows(FIRST + start, i - start); start = -1; }
   }
-  sh.getRange(1, 1).setValue(String(sh.getRange(1, 1).getValue()).replace(/ · hôm nay .*$/, '') + ' · hôm nay ' + (code === 'CN' ? 'Chủ nhật' : 'Thứ ' + code.slice(1)));
+  sh.getRange(1, 3).setValue(String(sh.getRange(1, 3).getValue()).replace(/ · hôm nay .*$/, '') + ' · hôm nay ' + (code === 'CN' ? 'Chủ nhật' : 'Thứ ' + code.slice(1)));
 }
 function filterAll() { loadData_().routes.forEach(function (r) { try { filterToday_(SpreadsheetApp.openById(r.id)); } catch (e) {} }); }
 function onOpenFile(e) { filterToday_(e.source); }
