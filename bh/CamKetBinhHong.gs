@@ -24,7 +24,7 @@ var HEAD = ['Mã KH', 'Tên KH', 'Thứ', 'SEG', 'Loại hình', 'Loại', 'Tủ
   'Tủ', 'CVS', 'Tea', 'AQF', 'SL đã lấy (thùng)', 'DE', 'SDO 1', 'SDO 2', 'Tea', 'Boss cà phê', 'Sting Vàng Pro', 'Sữa trái cây',
   'Ngày cam kết', 'Giờ trả KQ', 'Ghi chú'];
 
-function loadData_() { return JSON.parse(UrlFetchApp.fetch(DATA_URL + '?t=' + Date.now()).getContentText()); }
+function loadData_() { var d = JSON.parse(UrlFetchApp.fetch(DATA_URL + '?t=' + Date.now()).getContentText()); d_aiAsof_ = d.aiAsof || ''; return d; }
 
 function setup() {
   var d = loadData_();
@@ -65,6 +65,7 @@ function capNhatSoLieu() {
   });
 }
 
+var d_aiAsof_ = '';
 function buildHeader_(sh, r, asof) {
   sh.getRange(1, 1, HEAD_ROWS, NCOL).breakApart();
   // hàng 1: A:B = tên NV (luôn hiện khi kéo ngang), C:AF = tiêu đề
@@ -78,7 +79,7 @@ function buildHeader_(sh, r, asof) {
     sh.getRange(2, c, 2, g[1]).setBackground(g[2]).setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
     c += g[1];
   });
-  sh.getRange(2, 7).setValue('CCTB (Đạt ảnh AI)');
+  sh.getRange(2, 7).setValue('CCTB · số lần đạt ảnh AI (đến ' + (d_aiAsof_ || asof) + ')');
   sh.getRange(2, 11).setValue('ĐÃ THỰC HIỆN (đến ' + asof + ')');
   sh.getRange(3, 1, 1, NCOL).setValues([HEAD]).setWrap(true).setVerticalAlignment('middle').setFontSize(9);
   sh.setRowHeight(3, 46); sh.setFrozenRows(HEAD_ROWS); sh.setFrozenColumns(2);
@@ -94,6 +95,7 @@ function formatBody_(sh, n) {
   all.setFontSize(10).setBorder(true, true, true, true, true, true, '#d3dce8', SpreadsheetApp.BorderStyle.SOLID).setVerticalAlignment('middle');
   sh.getRange(FIRST, 2, n, 1).setFontWeight('bold');
   sh.getRange(FIRST, 3, n, 16).setHorizontalAlignment('center');
+  sh.getRange(FIRST, 7, n, 4).setNumberFormat('0" lần"');
   sh.getRange(FIRST, CK1, n, 12).setBackground('#fffbeb').setHorizontalAlignment('center');
   sh.getRange(FIRST, KQ1, n, 12).setBackground('#f0fdf4').setHorizontalAlignment('center');
   CBS.forEach(function (p) { sh.getRange(FIRST, p[0], n, p[1]).insertCheckboxes(); });
@@ -101,8 +103,9 @@ function formatBody_(sh, n) {
   sh.getRange(FIRST, COL_DATE, n, 2).setNumberFormat('dd/MM/yyyy HH:mm').setFontColor('#64748b');
   // màu chữ: đạt / đã mua / có = xanh, chưa = đỏ
   var rules = [
-    SpreadsheetApp.newConditionalFormatRule().whenTextStartsWith('Chưa').setFontColor('#b91c1c').setRanges([sh.getRange(FIRST, 7, n, 12)]).build(),
-    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Đạt AI').setFontColor('#15803d').setBold(true).setRanges([sh.getRange(FIRST, 7, n, 4)]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextStartsWith('Chưa').setFontColor('#b91c1c').setRanges([sh.getRange(FIRST, 11, n, 8)]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenNumberEqualTo(0).setFontColor('#b91c1c').setRanges([sh.getRange(FIRST, 7, n, 4)]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThan(0).setFontColor('#15803d').setBold(true).setRanges([sh.getRange(FIRST, 7, n, 4)]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Đã mua').setFontColor('#15803d').setBold(true).setRanges([sh.getRange(FIRST, 12, n, 3)]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Có').setFontColor('#15803d').setBold(true).setRanges([sh.getRange(FIRST, 15, n, 4)]).build()];
   sh.setConditionalFormatRules(rules);
