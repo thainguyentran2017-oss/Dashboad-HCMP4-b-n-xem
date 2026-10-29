@@ -68,7 +68,7 @@ function buildHeader_(sh, r, asof) {
   sh.getRange(2, 7).setValue('CCTB (Đạt ảnh AI)');
   sh.getRange(2, 11).setValue('ĐÃ THỰC HIỆN (đến ' + asof + ')');
   sh.getRange(3, 1, 1, NCOL).setValues([HEAD]).setWrap(true).setVerticalAlignment('middle').setFontSize(9);
-  sh.setRowHeight(3, 46); sh.setFrozenRows(HEAD_ROWS); sh.setFrozenColumns(2);
+  sh.setRowHeight(3, 46); sh.setFrozenColumns(0); sh.setFrozenRows(HEAD_ROWS);
   var W = [90, 190, 55, 40, 60, 45, 95, 95, 95, 95, 60, 65, 65, 65, 65, 75, 80, 80, 40, 40, 40, 40, 70, 40, 45, 45, 40, 55, 60, 60, 115, 160];
   W.forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
 }
