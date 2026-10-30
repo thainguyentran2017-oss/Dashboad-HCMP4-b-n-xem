@@ -2,7 +2,7 @@
  * CAM KẾT NGÀY · NPP BÌNH HỒNG
  * 1) Chạy hàm setup() một lần: đổ danh sách KH vào 6 file, tạo ô tích, cài tự lọc theo thứ và tự ghi giờ.
  * 2) Khi có số liệu mới: chạy hàm capNhatSoLieu() (giữ nguyên các ô NV đã tích).
- * Sáng NV tích CAM KẾT, chiều NV tích KẾT QUẢ NGÀY. Ngày mới NV tích lại cam kết thì dòng đó tự xoá cam kết/kết quả cũ.
+ * Sáng (hoặc tối hôm trước) NV tích CAM KẾT, chiều NV tích KẾT QUẢ NGÀY. Tuần sau NV tích lại cam kết thì dòng đó tự xoá cam kết/kết quả cũ.
  * 22h mỗi ngày các dòng có cam kết trong ngày được lưu vào tab "Lịch sử".
  */
 var DATA_URL = 'https://raw.githubusercontent.com/thainguyentran2017-oss/Dashboad-HCMP4-b-n-xem/main/bh/data.json';
@@ -144,7 +144,8 @@ function onEditFile(e) {
     var row = r + k, cell = sh.getRange(row, CK1, 1, COL_KQT - CK1 + 1), v = cell.getValues()[0];
     var dOld = v[COL_DATE - CK1], isCk = c1 <= CK2;
     if (isCk) {
-      if (!(dOld instanceof Date) || Utilities.formatDate(dOld, TZ, 'yyyyMMdd') !== today) {
+      // chỉ làm mới dòng khi cam kết cũ đã quá 3 ngày (tuần trước); điền tối hôm trước cho tuyến hôm sau vẫn giữ nguyên
+      if (!(dOld instanceof Date) || now.getTime() - dOld.getTime() > 3 * 86400000) {
         for (var c = CK1; c <= COL_KQT; c++) {
           if (c >= c1 && c <= c2) continue;
           v[c - CK1] = (c === COL_SL || c === COL_SLKQ || c >= COL_DATE) ? '' : false;
