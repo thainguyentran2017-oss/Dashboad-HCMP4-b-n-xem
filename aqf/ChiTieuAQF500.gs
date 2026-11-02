@@ -9,8 +9,14 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('AQF 500').addItem('Tạo / làm mới bảng', 'taoBang').addToUi();
 }
 
+// Sheet tiếng Việt dùng dấu ";" ngăn cách đối số trong công thức → đổi "," thành ";" theo locale của file
+var SEP_ = ',';
+function F_(f) { return SEP_ === ',' ? f : f.replace(/,/g, SEP_); }
+
 function taoBang() {
   var ss = SpreadsheetApp.getActive();
+  var loc = String(ss.getSpreadsheetLocale() || '');
+  SEP_ = /^(en|th|ja|ko|zh|he|ms|fil|hi)/.test(loc) || /_(US|GB|AU|CA|IN|IE|NZ|SG|PH|MY)$/.test(loc) && !/^(vi|fr|de|es|it|pt|ru|nl|pl|tr|id)/.test(loc) ? ',' : ';';
   var d = JSON.parse(UrlFetchApp.fetch(DATA_URL + '?t=' + Date.now()).getContentText());
   var rows = d.rows, n = rows.length, last = 3 + n;
 
@@ -46,7 +52,7 @@ function taoBang() {
   var vals = rows.map(function (r, i) {
     var k = 4 + i, kp = keep[r[4]] || ['', '', ''];
     return ['HCMP4', d.disCode, d.npp, r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], kp[0], kp[1], kp[2],
-      '=IF(AND(R' + k + '="",S' + k + '=""),"",IF(OR(AND(R' + k + '<>"",R' + k + '<Q' + k + '),AND(S' + k + '<>"",S' + k + '<Q' + k + ')),"Cần trình SD phê duyệt","ok"))'];
+      F_('=IF(AND(R' + k + '="",S' + k + '=""),"",IF(OR(AND(R' + k + '<>"",R' + k + '<Q' + k + '),AND(S' + k + '<>"",S' + k + '<Q' + k + ')),"Cần trình SD phê duyệt","ok"))')];
   });
   ws.getRange(4, 1, n, 21).setValues(vals);
   ws.getRange(4, 11, n, 7).setNumberFormat('#,##0.#;-#,##0.#;""');
@@ -54,7 +60,7 @@ function taoBang() {
   ws.getRange(4, 17, n, 1).setFontWeight('bold').setFontColor('#C00000');
   ws.getRange(3, 1, n + 1, 21).setBorder(true, true, true, true, true, true, '#BFBFBF', SpreadsheetApp.BorderStyle.SOLID);
   ['K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S'].forEach(function (c) {
-    ws.getRange(c + '1').setFormula('=SUBTOTAL(9,' + c + '4:' + c + last + ')').setNumberFormat('#,##0').setFontWeight('bold');
+    ws.getRange(c + '1').setFormula(F_('=SUBTOTAL(9,' + c + '4:' + c + last + ')')).setNumberFormat('#,##0').setFontWeight('bold');
   });
   // chỉ cho nhập số ≥ 0 ở 2 cột chỉ tiêu
   ws.getRange(4, 18, n, 2).setDataValidation(SpreadsheetApp.newDataValidation().requireNumberGreaterThanOrEqualTo(0)
@@ -81,9 +87,9 @@ function taoBang() {
   var A = 'ASO!$E$4:$E$' + last;
   var v2 = codes.map(function (c, i) {
     var k = 4 + i, r = seen[c], f = [];
-    ['K', 'L', 'M', 'N', 'O', 'Q', 'R', 'S'].forEach(function (col) { f.push('=SUMIFS(ASO!$' + col + '$4:$' + col + '$' + last + ',' + A + ',$B' + k + ')'); });
-    return [r[0], c, r[2], r[3], '=COUNTIF(' + A + ',B' + k + ')', '=COUNTIFS(' + A + ',B' + k + ',ASO!$Q$4:$Q$' + last + ',">0")'].concat(f)
-      .concat(['=COUNTIFS(' + A + ',B' + k + ',ASO!$R$4:$R$' + last + ',"<>")', '=COUNTIFS(' + A + ',B' + k + ',ASO!$U$4:$U$' + last + ',"Cần trình SD phê duyệt")']);
+    ['K', 'L', 'M', 'N', 'O', 'Q', 'R', 'S'].forEach(function (col) { f.push(F_('=SUMIFS(ASO!$' + col + '$4:$' + col + '$' + last + ',' + A + ',$B' + k + ')')); });
+    return [r[0], c, r[2], r[3], F_('=COUNTIF(' + A + ',B' + k + ')'), F_('=COUNTIFS(' + A + ',B' + k + ',ASO!$Q$4:$Q$' + last + ',">0")')].concat(f)
+      .concat([F_('=COUNTIFS(' + A + ',B' + k + ',ASO!$R$4:$R$' + last + ',"<>")'), F_('=COUNTIFS(' + A + ',B' + k + ',ASO!$U$4:$U$' + last + ',"Cần trình SD phê duyệt")')]);
   });
   w2.getRange(4, 1, codes.length, 16).setValues(v2);
   var t = 4 + codes.length, tot = ['TỔNG', '', '', ''];
@@ -97,5 +103,7 @@ function taoBang() {
   var s1 = ss.getSheetByName('Sheet1') || ss.getSheetByName('Trang tính1');
   if (s1 && s1.getLastRow() === 0 && ss.getSheets().length > 2) ss.deleteSheet(s1);
   ss.setActiveSheet(ws);
-  SpreadsheetApp.getUi().alert('Đã tạo xong ' + n + ' KH · ' + codes.length + ' tuyến');
+  SpreadsheetApp.flush();
+  ss.toast('Đã tạo xong ' + n + ' KH · ' + codes.length + ' tuyến', 'AQF 500', 10);
+  Logger.log('Đã tạo xong ' + n + ' KH · ' + codes.length + ' tuyến · locale ' + loc + ' · dấu "' + SEP_ + '"');
 }
