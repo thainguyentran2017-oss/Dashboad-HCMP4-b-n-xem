@@ -7,7 +7,10 @@
  * Sang tháng mới (5h sáng ngày 1, hoặc khi chạy capNhatSoLieu): xoá trắng số liệu "Đã thực hiện" và các cam kết / kết quả của tháng trước
  * (cam kết đã điền trong tháng mới được giữ lại).
  * Từ T11/2026: SDO 1 = Revive, SDO 2 = Tea+ → nhóm bao phủ "Tea" đổi thành "Rockstar".
+ * Nhật ký tích: mỗi lần NV tích / bỏ tích / nhập SL ở phần cam kết hoặc kết quả, 1 dòng được ghi vào file "Nhật ký tích · Cam kết ngày Bình Hồng"
+ * (thời gian, tuyến, NV, KH, phần, mục, giá trị) để xem giờ NV tích từng mục trên dashboard.
  */
+var LOG_ID = '1PiqUReCf9Fwfd6mG0dGr7ei2gpZl75TECCYDuEQPgbM';
 var DATA_URL = 'https://raw.githubusercontent.com/thainguyentran2017-oss/Dashboad-HCMP4-b-n-xem/main/bh/data.json';
 var SHEET = 'Danh sách';
 var TZ = 'Asia/Ho_Chi_Minh';
@@ -169,6 +172,7 @@ function onEditFile(e) {
   var c1 = rg.getColumn(), c2 = rg.getLastColumn(), r = rg.getRow();
   if (r < FIRST || c2 < CK1 || c1 > KQ2) return;
   var now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyyMMdd');
+  try { ghiNhatKy_(sh, rg, now); } catch (err) { Logger.log('nhat ky: ' + err); }
   for (var k = 0; k < rg.getNumRows(); k++) {
     var row = r + k, cell = sh.getRange(row, CK1, 1, COL_KQT - CK1 + 1), v = cell.getValues()[0];
     var dOld = v[COL_DATE - CK1], isCk = c1 <= CK2;
@@ -186,6 +190,25 @@ function onEditFile(e) {
     }
     cell.setValues([v]);
   }
+}
+
+// ghi từng ô vừa sửa (trong phần cam kết / kết quả) vào file nhật ký chung
+function ghiNhatKy_(sh, rg, now) {
+  var a = Math.max(rg.getColumn(), CK1), b = Math.min(rg.getLastColumn(), KQ2); if (a > b) return;
+  var n = rg.getNumRows(), r0 = rg.getRow();
+  var head = sh.getRange(3, 1, 1, NCOL).getValues()[0], who = String(sh.getRange(1, 1).getValue() || ''), code = who.split(' · ')[0], nv = who.split(' · ').slice(1).join(' · ');
+  var info = sh.getRange(r0, 1, n, 3).getValues(), vals = sh.getRange(r0, a, n, b - a + 1).getValues(), t = Utilities.formatDate(now, TZ, 'dd/MM/yyyy HH:mm:ss'), out = [];
+  for (var i = 0; i < n; i++) {
+    if (!/^CT/i.test(String(info[i][0]))) continue;
+    for (var j = 0; j <= b - a; j++) {
+      var c = a + j, v = vals[i][j], val = v === true ? 'Tích' : v === false ? 'Bỏ tích' : (v === '' || v == null ? 'Xoá' : v);
+      out.push([t, code, nv, info[i][0], info[i][1], info[i][2], c <= CK2 ? 'Cam kết' : 'Kết quả', (c >= KQ1 && c <= KQ1 + 3 ? 'CCTB ' : c >= CK1 && c <= CK1 + 3 ? 'CCTB ' : '') + head[c - 1], val]);
+    }
+  }
+  if (!out.length) return;
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { var lg = SpreadsheetApp.openById(LOG_ID).getSheets()[0]; lg.getRange(lg.getLastRow() + 1, 1, out.length, 9).setValues(out); }
+  finally { lock.releaseLock(); }
 }
 
 // 22h: lưu các dòng có cam kết trong ngày sang tab "Lịch sử" (giữ lịch sử khi tuần sau NV tích lại)
