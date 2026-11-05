@@ -7,6 +7,8 @@
  * Sang tháng mới (5h sáng ngày 1, hoặc khi chạy capNhatSoLieu): xoá trắng số liệu "Đã thực hiện" và các cam kết / kết quả của tháng trước
  * (cam kết đã điền trong tháng mới được giữ lại).
  * Từ T11/2026: SDO 1 = Revive, SDO 2 = Tea+ → nhóm bao phủ "Tea" đổi thành "Rockstar".
+ * Khoá số liệu: các cột A..R (thông tin KH, CCTB, Đã thực hiện) và giờ tự ghi (AQ, AR) chỉ đổi khi chạy capNhatSoLieu; NV sửa / xoá / dán vào
+ *   các cột này thì script tự trả lại giá trị gốc (lưu ở tab ẩn "_goc").
  * Nhật ký tích: mỗi lần NV tích / bỏ tích / nhập SL ở phần cam kết hoặc kết quả, 1 dòng được ghi vào file "Nhật ký tích · Cam kết ngày Bình Hồng"
  * (thời gian, tuyến, NV, KH, phần, mục, giá trị) để xem giờ NV tích từng mục trên dashboard.
  */
@@ -20,6 +22,7 @@ var CBS = [[19, 4], [24, 7], [31, 4], [36, 7]];   // các khối ô tích
 var COL_SL = 23, COL_SLKQ = 35;                   // W = SL cam kết, AI = SL đã lấy
 var COL_DATE = 43, COL_KQT = 44, COL_NOTE = 45;   // AQ = Ngày cam kết, AR = Giờ trả KQ, AS = Ghi chú
 var HIST = 'Lịch sử';
+var GOC = '_goc';   // tab ẩn giữ bản gốc số liệu (A..R) + giờ tự ghi (AQ, AR): NV sửa các cột này sẽ tự trả lại như cũ
 var BLANK = function () { var a = []; for (var i = 19; i <= NCOL; i++) a.push(''); return a; };
 var GROUPS = [['THÔNG TIN KHÁCH HÀNG', 6, '#1f7a6b'], ['CCTB', 4, '#4a5a8c'], ['ĐÃ THỰC HIỆN', 8, '#0e7490'],
   ['CAM KẾT CCTB (sáng)', 4, '#b45309'], ['CAM KẾT THỰC HIỆN (sáng)', 8, '#c2410c'],
@@ -51,13 +54,14 @@ function setup() {
     var ss = SpreadsheetApp.openById(r.id);
     var sh = ss.getSheetByName(SHEET) || ss.getSheets()[0];
     sh.setName(SHEET); sh.clear(); sh.getDataRange().clearDataValidations();
-    ss.getSheets().forEach(function (s) { if (s.getName() !== SHEET && s.getName() !== HIST) ss.deleteSheet(s); });
+    ss.getSheets().forEach(function (s) { if (s.getName() !== SHEET && s.getName() !== HIST && s.getName() !== GOC) ss.deleteSheet(s); });
     buildHeader_(sh, r, d.asof);
     var rows = r.rows.map(function (x) { return x.concat(BLANK()); });
     PropertiesService.getScriptProperties().setProperty('month', d.month);
     if (sh.getMaxColumns() < NCOL) sh.insertColumnsAfter(sh.getMaxColumns(), NCOL - sh.getMaxColumns());
     if (rows.length) sh.getRange(FIRST, 1, rows.length, NCOL).setValues(rows);
     formatBody_(sh, rows.length);
+    luuGoc_(ss, rows);
     ScriptApp.newTrigger('onOpenFile').forSpreadsheet(ss).onOpen().create();
     ScriptApp.newTrigger('onEditFile').forSpreadsheet(ss).onEdit().create();
     filterToday_(ss);
@@ -86,6 +90,7 @@ function capNhatSoLieu() {
     buildHeader_(sh, r, d.asof);
     if (rows.length) sh.getRange(FIRST, 1, rows.length, NCOL).setValues(rows);
     formatBody_(sh, rows.length);
+    luuGoc_(ss, rows);
     filterToday_(ss);
   });
   PropertiesService.getScriptProperties().setProperty('month', d.month);
@@ -151,6 +156,34 @@ function khoa_(sh, n) {
   p.removeEditors(p.getEditors().filter(function (u) { return u.getEmail() !== me.getEmail(); }));
   if (p.canDomainEdit()) p.setDomainEdit(false);
 }
+// lưu bản gốc vào tab ẩn _goc (cùng số dòng với tab Danh sách)
+function luuGoc_(ss, rows) {
+  var g = ss.getSheetByName(GOC) || ss.insertSheet(GOC);
+  g.clear();
+  if (g.getMaxColumns() < NCOL) g.insertColumnsAfter(g.getMaxColumns(), NCOL - g.getMaxColumns());
+  if (g.getMaxRows() < FIRST + rows.length) g.insertRowsAfter(g.getMaxRows(), FIRST + rows.length - g.getMaxRows());
+  if (rows.length) g.getRange(FIRST, 1, rows.length, NCOL).setValues(rows);
+  g.hideSheet();
+  g.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (x) { x.remove(); });
+  var p = g.protect().setDescription('Bản gốc số liệu'); p.setWarningOnly(false);
+  var me = Session.getEffectiveUser(); p.addEditor(me);
+  p.removeEditors(p.getEditors().filter(function (u) { return u.getEmail() !== me.getEmail(); }));
+  if (p.canDomainEdit()) p.setDomainEdit(false);
+}
+// NV sửa / xoá / dán vào cột khoá (A..R, AQ, AR) → trả lại giá trị gốc
+function traLai_(sh, rg) {
+  var g = sh.getParent().getSheetByName(GOC); if (!g) return;
+  var r = rg.getRow(), n = rg.getNumRows(), c1 = rg.getColumn(), c2 = rg.getLastColumn();
+  [[1, CK1 - 1], [COL_DATE, COL_KQT]].forEach(function (b) {
+    var a = Math.max(c1, b[0]), z = Math.min(c2, b[1]); if (a > z) return;
+    sh.getRange(r, a, n, z - a + 1).setValues(g.getRange(r, a, n, z - a + 1).getValues());
+  });
+}
+// ghi giờ vào cả tab chính và bản gốc
+function ghiGio_(sh, row, col, v) {
+  sh.getRange(row, col).setValue(v);
+  var g = sh.getParent().getSheetByName(GOC); if (g) g.getRange(row, col).setValue(v);
+}
 // Chạy hàm này 1 lần để khoá ngay 6 file (không đụng tới dữ liệu, không xoá ô đã tích)
 function khoaCacCot() {
   loadData_().routes.forEach(function (r) {
@@ -190,7 +223,9 @@ function onOpenFile(e) { filterToday_(e.source); }
 function onEditFile(e) {
   var rg = e.range, sh = rg.getSheet(); if (sh.getName() !== SHEET) return;
   var c1 = rg.getColumn(), c2 = rg.getLastColumn(), r = rg.getRow();
-  if (r < FIRST || c2 < CK1 || c1 > KQ2) return;
+  if (r < FIRST) return;
+  if (c1 < CK1 || (c2 >= COL_DATE && c1 <= COL_KQT)) { try { traLai_(sh, rg); } catch (err) { Logger.log('tra lai: ' + err); } }
+  if (c2 < CK1 || c1 > KQ2) return;
   var now = new Date(), isCk = c1 <= CK2, n = rg.getNumRows();
   var lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
@@ -206,11 +241,11 @@ function onEditFile(e) {
             var blank = (c === COL_SL || c === COL_SLKQ) ? '' : false;
             if (cur[c - CK1] !== blank && cur[c - CK1] !== '') sh.getRange(row, c).setValue(blank);
           }
-          sh.getRange(row, COL_KQT).setValue('');
+          ghiGio_(sh, row, COL_KQT, '');
         }
-        sh.getRange(row, COL_DATE).setValue(now);
+        ghiGio_(sh, row, COL_DATE, now);
       } else {
-        sh.getRange(row, COL_KQT).setValue(now);
+        ghiGio_(sh, row, COL_KQT, now);
       }
     }
     SpreadsheetApp.flush();
@@ -286,6 +321,7 @@ function khoiPhucHomNay() {
       nOk++;
     });
     rg.setValues(v);
+    var g = ss.getSheetByName(GOC); if (g) g.getRange(FIRST, COL_DATE, n, 2).setValues(v.map(function (x) { return [x[COL_DATE - CK1], x[COL_KQT - CK1]]; }));
   });
   SpreadsheetApp.flush();
   Logger.log('Đã khôi phục ' + nOk + ' KH (nhật ký 7 ngày, múi giờ file nhật ký: ' + lz + ') · ' + today);
