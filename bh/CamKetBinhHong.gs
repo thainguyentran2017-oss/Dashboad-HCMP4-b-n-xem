@@ -237,24 +237,24 @@ function luuLichSu() {
   });
 }
 
-// KHÔI PHỤC: lấy lại các ô cam kết / kết quả NV đã tích từ 12h trưa hôm qua đến giờ (tối hôm trước + hôm nay) từ file Nhật ký tích (giá trị cuối cùng của từng ô).
-// Dùng khi file bị xoá trắng (ví dụ lỡ chạy setup). Chạy bao nhiêu lần cũng được, không đụng các ngày khác.
+// KHÔI PHỤC: dựng lại phần cam kết / kết quả của từng KH từ file Nhật ký tích (7 ngày gần nhất), làm y như lúc NV tích:
+// mỗi lần tích cam kết → ghi lại Ngày cam kết; cam kết mới cách lần trước > 3 ngày thì xoá dòng cũ. Chạy lại nhiều lần cũng được.
 function khoiPhucHomNay() {
   var d = loadData_(), today = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy'), ids = {};
   d.routes.forEach(function (r) { ids[r.code] = r.id; });
-  var lg = SpreadsheetApp.openById(LOG_ID).getSheets()[0], L = lg.getDataRange().getValues().slice(1);
-  var ts = function (v) { return v instanceof Date ? v : Utilities.parseDate(String(v), TZ, 'dd/MM/yyyy HH:mm:ss'); };
-  var day = function (v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'dd/MM/yyyy') : String(v).slice(0, 10); };
-  var by = {};   // route → KH → {cells: {col: value}, ck: Date, kq: Date}
-  var lab = {};  // 'Cam kết|mục' → cột
-  var h = head_();
+  var lss = SpreadsheetApp.openById(LOG_ID), lz = lss.getSpreadsheetTimeZone(), L = lss.getSheets()[0].getDataRange().getValues().slice(1);
+  // ô thời gian trong file nhật ký được Google Sheets hiểu theo múi giờ của file đó → đọc lại đúng giờ VN
+  var F = 'dd/MM/yyyy HH:mm:ss';
+  var ts = function (v) { return Utilities.parseDate(v instanceof Date ? Utilities.formatDate(v, lz, F) : String(v), TZ, F); };
+  var by = {}, lab = {}, h = head_();
   for (var c = CK1; c <= KQ2; c++) lab[(c <= CK2 ? 'Cam kết' : 'Kết quả') + '|' + ((c >= KQ1 && c <= KQ1 + 3) || (c >= CK1 && c <= CK1 + 3) ? 'CCTB ' : '') + h[c - 1]] = c;
-  var t0 = Utilities.parseDate(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') + ' 00:00', TZ, 'yyyy-MM-dd HH:mm').getTime() - 12 * 3600000;
-  L.filter(function (x) { try { return ts(x[0]).getTime() >= t0; } catch (e) { return false; } }).sort(function (a, b) { return ts(a[0]) - ts(b[0]); }).forEach(function (x) {
-    var col = lab[x[6] + '|' + x[7]]; if (!col || !ids[x[1]]) return;
-    var R = by[x[1]] = by[x[1]] || {}, K = R[x[3]] = R[x[3]] || {cells: {}, ck: null, kq: null}, t = ts(x[0]), v = x[8];
+  var t0 = Date.now() - 7 * 86400000, E = [];
+  L.forEach(function (x) { try { var t = ts(x[0]); if (t.getTime() >= t0) E.push([t, x]); } catch (e) {} });
+  E.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (e) {
+    var t = e[0], x = e[1], col = lab[x[6] + '|' + x[7]]; if (!col || !ids[x[1]]) return;
+    var R = by[x[1]] = by[x[1]] || {}, K = R[x[3]] = R[x[3]] || {cells: {}, ck: null, kq: null}, v = x[8];
+    if (col <= CK2) { if (K.ck && t.getTime() - K.ck.getTime() > 3 * 86400000) { K.cells = {}; K.kq = null; } K.ck = t; } else K.kq = t;
     K.cells[col] = v === 'Tích' ? true : v === 'Bỏ tích' ? false : v === 'Xoá' ? '' : v;
-    if (col <= CK2) { if (!K.ck) K.ck = t; } else K.kq = t;
   });
   var nOk = 0;
   Object.keys(by).forEach(function (code) {
@@ -262,13 +262,14 @@ function khoiPhucHomNay() {
     var keys = sh.getRange(FIRST, 1, n, 1).getValues(), rg = sh.getRange(FIRST, CK1, n, COL_KQT - CK1 + 1), v = rg.getValues();
     keys.forEach(function (k, i) {
       var K = by[code][k[0]]; if (!K) return;
+      for (var c2 = CK1; c2 < COL_DATE; c2++) v[i][c2 - CK1] = (c2 === COL_SL || c2 === COL_SLKQ) ? '' : false;   // dựng lại từ dòng trống
       for (var col in K.cells) v[i][col - CK1] = K.cells[col];
-      if (K.ck) v[i][COL_DATE - CK1] = K.ck;
-      if (K.kq) v[i][COL_KQT - CK1] = K.kq;
+      v[i][COL_DATE - CK1] = K.ck || '';
+      v[i][COL_KQT - CK1] = K.kq || '';
       nOk++;
     });
     rg.setValues(v);
   });
   SpreadsheetApp.flush();
-  Logger.log('Đã khôi phục ' + nOk + ' KH đã tích từ trưa hôm qua đến nay (' + today + ')');
+  Logger.log('Đã khôi phục ' + nOk + ' KH (nhật ký 7 ngày, múi giờ file nhật ký: ' + lz + ') · ' + today);
 }
