@@ -236,3 +236,38 @@ function luuLichSu() {
     } catch (e) {}
   });
 }
+
+// KHÔI PHỤC: lấy lại các ô cam kết / kết quả NV đã tích TRONG NGÀY HÔM NAY từ file Nhật ký tích (giá trị cuối cùng của từng ô).
+// Dùng khi file bị xoá trắng (ví dụ lỡ chạy setup). Chạy bao nhiêu lần cũng được, không đụng các ngày khác.
+function khoiPhucHomNay() {
+  var d = loadData_(), today = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy'), ids = {};
+  d.routes.forEach(function (r) { ids[r.code] = r.id; });
+  var lg = SpreadsheetApp.openById(LOG_ID).getSheets()[0], L = lg.getDataRange().getValues().slice(1);
+  var ts = function (v) { return v instanceof Date ? v : Utilities.parseDate(String(v), TZ, 'dd/MM/yyyy HH:mm:ss'); };
+  var day = function (v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'dd/MM/yyyy') : String(v).slice(0, 10); };
+  var by = {};   // route → KH → {cells: {col: value}, ck: Date, kq: Date}
+  var lab = {};  // 'Cam kết|mục' → cột
+  var h = head_();
+  for (var c = CK1; c <= KQ2; c++) lab[(c <= CK2 ? 'Cam kết' : 'Kết quả') + '|' + ((c >= KQ1 && c <= KQ1 + 3) || (c >= CK1 && c <= CK1 + 3) ? 'CCTB ' : '') + h[c - 1]] = c;
+  L.filter(function (x) { return day(x[0]) === today; }).sort(function (a, b) { return ts(a[0]) - ts(b[0]); }).forEach(function (x) {
+    var col = lab[x[6] + '|' + x[7]]; if (!col || !ids[x[1]]) return;
+    var R = by[x[1]] = by[x[1]] || {}, K = R[x[3]] = R[x[3]] || {cells: {}, ck: null, kq: null}, t = ts(x[0]), v = x[8];
+    K.cells[col] = v === 'Tích' ? true : v === 'Bỏ tích' ? false : v === 'Xoá' ? '' : v;
+    if (col <= CK2) { if (!K.ck) K.ck = t; } else K.kq = t;
+  });
+  var nOk = 0;
+  Object.keys(by).forEach(function (code) {
+    var ss = SpreadsheetApp.openById(ids[code]), sh = ss.getSheetByName(SHEET), n = sh.getLastRow() - HEAD_ROWS; if (n <= 0) return;
+    var keys = sh.getRange(FIRST, 1, n, 1).getValues(), rg = sh.getRange(FIRST, CK1, n, COL_KQT - CK1 + 1), v = rg.getValues();
+    keys.forEach(function (k, i) {
+      var K = by[code][k[0]]; if (!K) return;
+      for (var col in K.cells) v[i][col - CK1] = K.cells[col];
+      if (K.ck) v[i][COL_DATE - CK1] = K.ck;
+      if (K.kq) v[i][COL_KQT - CK1] = K.kq;
+      nOk++;
+    });
+    rg.setValues(v);
+  });
+  SpreadsheetApp.flush();
+  Logger.log('Đã khôi phục ' + nOk + ' KH đã tích trong ngày ' + today);
+}
