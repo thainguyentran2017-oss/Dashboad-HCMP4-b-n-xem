@@ -237,7 +237,7 @@ function luuLichSu() {
   });
 }
 
-// KHÔI PHỤC: lấy lại các ô cam kết / kết quả NV đã tích TRONG NGÀY HÔM NAY từ file Nhật ký tích (giá trị cuối cùng của từng ô).
+// KHÔI PHỤC: lấy lại các ô cam kết / kết quả NV đã tích từ 12h trưa hôm qua đến giờ (tối hôm trước + hôm nay) từ file Nhật ký tích (giá trị cuối cùng của từng ô).
 // Dùng khi file bị xoá trắng (ví dụ lỡ chạy setup). Chạy bao nhiêu lần cũng được, không đụng các ngày khác.
 function khoiPhucHomNay() {
   var d = loadData_(), today = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy'), ids = {};
@@ -249,7 +249,8 @@ function khoiPhucHomNay() {
   var lab = {};  // 'Cam kết|mục' → cột
   var h = head_();
   for (var c = CK1; c <= KQ2; c++) lab[(c <= CK2 ? 'Cam kết' : 'Kết quả') + '|' + ((c >= KQ1 && c <= KQ1 + 3) || (c >= CK1 && c <= CK1 + 3) ? 'CCTB ' : '') + h[c - 1]] = c;
-  L.filter(function (x) { return day(x[0]) === today; }).sort(function (a, b) { return ts(a[0]) - ts(b[0]); }).forEach(function (x) {
+  var t0 = Utilities.parseDate(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') + ' 00:00', TZ, 'yyyy-MM-dd HH:mm').getTime() - 12 * 3600000;
+  L.filter(function (x) { try { return ts(x[0]).getTime() >= t0; } catch (e) { return false; } }).sort(function (a, b) { return ts(a[0]) - ts(b[0]); }).forEach(function (x) {
     var col = lab[x[6] + '|' + x[7]]; if (!col || !ids[x[1]]) return;
     var R = by[x[1]] = by[x[1]] || {}, K = R[x[3]] = R[x[3]] || {cells: {}, ck: null, kq: null}, t = ts(x[0]), v = x[8];
     K.cells[col] = v === 'Tích' ? true : v === 'Bỏ tích' ? false : v === 'Xoá' ? '' : v;
@@ -269,5 +270,5 @@ function khoiPhucHomNay() {
     rg.setValues(v);
   });
   SpreadsheetApp.flush();
-  Logger.log('Đã khôi phục ' + nOk + ' KH đã tích trong ngày ' + today);
+  Logger.log('Đã khôi phục ' + nOk + ' KH đã tích từ trưa hôm qua đến nay (' + today + ')');
 }
