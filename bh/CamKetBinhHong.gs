@@ -165,34 +165,43 @@ function filterAll() {
 }
 function onOpenFile(e) { filterToday_(e.source); }
 
-// Sáng: NV tích / nhập cam kết → ghi giờ cam kết; nếu dòng đang giữ cam kết của ngày cũ thì xoá cam kết + kết quả cũ.
+// Sáng: NV tích / nhập cam kết → ghi giờ cam kết; nếu dòng đang giữ cam kết của tuần trước thì xoá cam kết + kết quả cũ.
 // Chiều: NV tích / nhập kết quả → ghi giờ trả kết quả.
+// Sửa lỗi 05/11: trước đây hàm đọc cả dòng, ghi nhật ký (mở file khác, chờ khoá) rồi mới ghi đè lại CẢ DÒNG → nếu NV tích tiếp ô bên cạnh
+// trong lúc chờ thì ô mới tích bị ghi đè mất (trông như tích "nhảy" sang ô khác). Nay: chỉ ghi đúng ô giờ (AQ / AR), chỉ xoá dòng cũ khi
+// cam kết cũ đã quá 3 ngày, làm trong khoá ngắn, đọc lại dữ liệu mới nhất ngay trước khi ghi; nhật ký ghi SAU và không giữ khoá.
 function onEditFile(e) {
   var rg = e.range, sh = rg.getSheet(); if (sh.getName() !== SHEET) return;
   var c1 = rg.getColumn(), c2 = rg.getLastColumn(), r = rg.getRow();
   if (r < FIRST || c2 < CK1 || c1 > KQ2) return;
-  var now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyyMMdd');
-  try { ghiNhatKy_(sh, rg, now); } catch (err) { Logger.log('nhat ky: ' + err); }
-  for (var k = 0; k < rg.getNumRows(); k++) {
-    var row = r + k, cell = sh.getRange(row, CK1, 1, COL_KQT - CK1 + 1), v = cell.getValues()[0];
-    var dOld = v[COL_DATE - CK1], isCk = c1 <= CK2;
-    if (isCk) {
-      // chỉ làm mới dòng khi cam kết cũ đã quá 3 ngày (tuần trước); điền tối hôm trước cho tuyến hôm sau vẫn giữ nguyên
-      if (!(dOld instanceof Date) || now.getTime() - dOld.getTime() > 3 * 86400000) {
-        for (var c = CK1; c <= COL_KQT; c++) {
-          if (c >= c1 && c <= c2) continue;
-          v[c - CK1] = (c === COL_SL || c === COL_SLKQ || c >= COL_DATE) ? '' : false;
+  var now = new Date(), isCk = c1 <= CK2, n = rg.getNumRows();
+  var lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    var dates = sh.getRange(r, COL_DATE, n, 1).getValues();
+    for (var k = 0; k < n; k++) {
+      var row = r + k, dOld = dates[k][0];
+      if (isCk) {
+        // chỉ làm mới dòng khi cam kết cũ đã quá 3 ngày (tuần trước); dòng chưa có ngày thì không xoá gì
+        if (dOld instanceof Date && now.getTime() - dOld.getTime() > 3 * 86400000) {
+          var cur = sh.getRange(row, CK1, 1, COL_KQT - CK1 + 1).getValues()[0];
+          for (var c = CK1; c < COL_DATE; c++) {
+            if (c >= c1 && c <= c2) continue;                      // giữ ô NV vừa tích
+            var blank = (c === COL_SL || c === COL_SLKQ) ? '' : false;
+            if (cur[c - CK1] !== blank && cur[c - CK1] !== '') sh.getRange(row, c).setValue(blank);
+          }
+          sh.getRange(row, COL_KQT).setValue('');
         }
+        sh.getRange(row, COL_DATE).setValue(now);
+      } else {
+        sh.getRange(row, COL_KQT).setValue(now);
       }
-      v[COL_DATE - CK1] = now;
-    } else {
-      v[COL_KQT - CK1] = now;
     }
-    cell.setValues([v]);
-  }
+    SpreadsheetApp.flush();
+  } finally { lock.releaseLock(); }
+  try { ghiNhatKy_(sh, rg, now); } catch (err) { Logger.log('nhat ky: ' + err); }
 }
 
-// ghi từng ô vừa sửa (trong phần cam kết / kết quả) vào file nhật ký chung
+// ghi từng ô vừa sửa (trong phần cam kết / kết quả) vào file nhật ký chung (appendRow: không cần khoá, không chặn NV)
 function ghiNhatKy_(sh, rg, now) {
   var a = Math.max(rg.getColumn(), CK1), b = Math.min(rg.getLastColumn(), KQ2); if (a > b) return;
   var n = rg.getNumRows(), r0 = rg.getRow();
@@ -206,9 +215,8 @@ function ghiNhatKy_(sh, rg, now) {
     }
   }
   if (!out.length) return;
-  var lock = LockService.getScriptLock(); lock.waitLock(20000);
-  try { var lg = SpreadsheetApp.openById(LOG_ID).getSheets()[0]; lg.getRange(lg.getLastRow() + 1, 1, out.length, 9).setValues(out); }
-  finally { lock.releaseLock(); }
+  var lg = SpreadsheetApp.openById(LOG_ID).getSheets()[0];
+  out.forEach(function (x) { lg.appendRow(x); });
 }
 
 // 22h: lưu các dòng có cam kết trong ngày sang tab "Lịch sử" (giữ lịch sử khi tuần sau NV tích lại)
