@@ -136,11 +136,28 @@ function formatBody_(sh, n) {
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Đã mua').setFontColor('#15803d').setBold(true).setRanges([sh.getRange(FIRST, 12, n, 3)]).build(),
     SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Có').setFontColor('#15803d').setBold(true).setRanges([sh.getRange(FIRST, 15, n, 4)]).build()];
   sh.setConditionalFormatRules(rules);
-  // chỉ cho NV sửa phần cam kết
+  khoa_(sh, n);
+}
+
+// Khoá thật (không chỉ cảnh báo): NV chỉ sửa được phần cam kết (S..AD), kết quả ngày (AE..AP) và Ghi chú (AS).
+// Thông tin KH, CCTB, Đã thực hiện (A..R) và 2 cột giờ tự ghi (AQ, AR) chỉ chủ file sửa được; script tự ghi giờ vẫn chạy bình thường.
+function khoa_(sh, n) {
   sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (x) { x.remove(); });
-  var p = sh.protect().setDescription('Chỉ sửa phần cam kết');
-  p.setUnprotectedRanges([sh.getRange(FIRST, CK1, n, NCOL - CK1 + 1)]);
-  p.setWarningOnly(true);
+  var p = sh.protect().setDescription('Chỉ sửa phần cam kết / kết quả ngày');
+  p.setUnprotectedRanges([sh.getRange(FIRST, CK1, n, KQ2 - CK1 + 1), sh.getRange(FIRST, COL_NOTE, n, 1)]);
+  p.setWarningOnly(false);
+  var me = Session.getEffectiveUser();
+  p.addEditor(me);
+  p.removeEditors(p.getEditors().filter(function (u) { return u.getEmail() !== me.getEmail(); }));
+  if (p.canDomainEdit()) p.setDomainEdit(false);
+}
+// Chạy hàm này 1 lần để khoá ngay 6 file (không đụng tới dữ liệu, không xoá ô đã tích)
+function khoaCacCot() {
+  loadData_().routes.forEach(function (r) {
+    var sh = SpreadsheetApp.openById(r.id).getSheetByName(SHEET); if (!sh) return;
+    var n = Math.max(0, sh.getLastRow() - HEAD_ROWS); if (n) khoa_(sh, n);
+  });
+  Logger.log('Đã khoá các cột số liệu');
 }
 
 // chỉ hiện khách hàng của thứ hôm nay (T2..T7, CN)
