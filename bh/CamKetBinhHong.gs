@@ -2,6 +2,9 @@
  * CAM KẾT NGÀY · NPP BÌNH HỒNG
  * 1) Chạy hàm setup() một lần: đổ danh sách KH vào 6 file, tạo ô tích, cài tự lọc theo thứ và tự ghi giờ.
  * 2) Khi có số liệu mới: chạy hàm capNhatSoLieu() (giữ nguyên các ô NV đã tích).
+ * 2b) TỰ ĐỘNG: chạy hàm batTuDong() MỘT LẦN → từ đó cứ 30 phút script tự kiểm tra số liệu mới trên GitHub, có thay đổi thì tự cập nhật
+ *     (ngày thường chỉ ghi lại các cột số liệu A..R, không đụng tới phần NV đã tích; khi danh sách KH đổi / sang tháng thì chạy như capNhatSoLieu).
+ *     Muốn tắt: chạy tatTuDong().
  * Sáng (hoặc tối hôm trước) NV tích CAM KẾT, chiều NV tích KẾT QUẢ NGÀY. Tuần sau NV tích lại cam kết thì dòng đó tự xoá cam kết/kết quả cũ.
  * 22h mỗi ngày các dòng có cam kết trong ngày được lưu vào tab "Lịch sử".
  * Sang tháng mới (5h sáng ngày 1, hoặc khi chạy capNhatSoLieu): xoá trắng số liệu "Đã thực hiện" và các cam kết / kết quả của tháng trước
@@ -95,6 +98,51 @@ function capNhatSoLieu() {
   });
   PropertiesService.getScriptProperties().setProperty('month', d.month);
   Logger.log('Đã cập nhật ' + d.routes.length + ' file · ' + mLabel_(d.month) + (d.asof ? ' · số liệu đến ' + d.asof : ' · chưa có số liệu tháng'));
+}
+
+// ---------- TỰ ĐỘNG CẬP NHẬT SỐ LIỆU ----------
+// Chạy 1 lần: cài lịch 30 phút / lần cho tuDongCapNhat (không xoá các lịch khác: lọc theo thứ 5h, lưu lịch sử 22h, tự ghi giờ khi NV tích)
+function batTuDong() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'tuDongCapNhat') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('tuDongCapNhat').timeBased().everyMinutes(30).create();
+  PropertiesService.getScriptProperties().deleteProperty('sig');
+  tuDongCapNhat();
+  Logger.log('Đã bật tự động cập nhật số liệu 30 phút / lần');
+}
+function tatTuDong() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'tuDongCapNhat') ScriptApp.deleteTrigger(t); });
+  Logger.log('Đã tắt tự động cập nhật');
+}
+// Kiểm tra data.json trên GitHub; chỉ cập nhật khi số liệu khác lần trước
+function tuDongCapNhat() {
+  var txt = UrlFetchApp.fetch(DATA_URL + '?t=' + Date.now()).getContentText();
+  var sig = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, txt)) + '|' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM');
+  var P = PropertiesService.getScriptProperties(); if (P.getProperty('sig') === sig) return;
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(60000)) return;   // NV đang tích (onEdit giữ khoá) → để lần sau
+  try {
+    var d = loadData_(), full = P.getProperty('month') !== d.month, done = 0;
+    if (!full) {
+      // đường nhanh: danh sách KH của từng tuyến không đổi → chỉ ghi lại cột số liệu A..R (+ tiêu đề, bản gốc)
+      var plan = d.routes.map(function (r) {
+        var ss = SpreadsheetApp.openById(r.id), sh = ss.getSheetByName(SHEET); if (!sh) return null;
+        var n = Math.max(0, sh.getLastRow() - HEAD_ROWS); if (n !== r.rows.length) return null;
+        var keys = n ? sh.getRange(FIRST, 1, n, 1).getValues() : [];
+        for (var i = 0; i < n; i++) if (String(keys[i][0]) !== String(r.rows[i][0])) return null;
+        return {r: r, ss: ss, sh: sh, n: n};
+      });
+      if (plan.some(function (x) { return !x; })) full = true;
+      else plan.forEach(function (x) {
+        var vals = x.r.rows.map(function (row) { return row.slice(0, CK1 - 1); });
+        buildHeader_(x.sh, x.r, d.asof);
+        if (x.n) x.sh.getRange(FIRST, 1, x.n, CK1 - 1).setValues(vals);
+        var g = x.ss.getSheetByName(GOC); if (g && x.n) g.getRange(FIRST, 1, x.n, CK1 - 1).setValues(vals);
+        filterToday_(x.ss); done++;
+      });
+    }
+    if (full) capNhatSoLieu();
+    P.setProperty('sig', sig);
+    Logger.log((full ? 'Cập nhật đầy đủ (danh sách KH / tháng thay đổi)' : 'Cập nhật nhanh số liệu A..R · ' + done + ' file') + ' · số liệu đến ' + (d.asof || '–'));
+  } finally { lock.releaseLock(); }
 }
 
 var d_aiAsof_ = '';
