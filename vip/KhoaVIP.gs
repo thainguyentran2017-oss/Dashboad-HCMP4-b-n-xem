@@ -19,5 +19,5 @@ function khoaVIP() {
   p.addEditor(me);
   p.removeEditors(p.getEditors().filter(u => u.getEmail() !== me.getEmail()));
   if (p.canDomainEdit()) p.setDomainEdit(false);
-  SpreadsheetApp.getUi().alert('Đã khoá xong. NV chỉ nhập được ở các ô CHỐT và Lý do giải trình (màu vàng).');
+  Logger.log('Đã khoá xong: mở ' + mo.length + ' cột CHỐT/Lý do · dòng 5–' + last + ' · người sửa phần khoá: ' + p.getEditors().map(u => u.getEmail()).join(', '));
 }
