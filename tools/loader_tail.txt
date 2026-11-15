@@ -1,0 +1,14 @@
+<script>
+(async () => {
+  const un = async s => { const b = Uint8Array.from(atob(s), c => c.charCodeAt(0)); return await new Response(new Blob([b]).stream().pipeThrough(new DecompressionStream("gzip"))).text(); };
+  try {
+    window.DATA = JSON.parse(await un(DATA_GZ));
+    const sc = document.createElement("script"); sc.textContent = (await un(EXT_GZ)) + "\n" + document.getElementById("appsrc").textContent; document.body.appendChild(sc);
+    document.getElementById("kload").remove();
+    const LZ = ["data/p2025-07.js", "data/p2025-08.js", "data/p2025-09.js", "data/p2025-10.js", "data/p2025-12.js", "data/p2026-01.js", "data/p2026-02.js", "data/p2026-03.js", "data/p2026-04.js", "data/p2026-05.js", "data/p2026-06.js", "data/p2026-07.js"], one = src => new Promise(r => { const t = document.createElement("script"); t.src = src; t.onload = t.onerror = r; document.body.appendChild(t); });
+    setTimeout(async () => { for (const s of LZ) await one(s); window.addPrevMonths && window.addPrevMonths(); }, 1500);
+  } catch (e) { document.getElementById("kload").textContent = "Trình duyệt này chưa mở được dashboard, hãy dùng Chrome, Edge, Safari hoặc Firefox bản mới."; console.error(e); }
+})();
+</script>
+
+</body></html>
