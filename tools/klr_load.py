@@ -17,7 +17,7 @@ for r in wb['Kỷ Luật Route'].iter_rows(min_row=1,values_only=True):
   d=r[0].day; kd.add(d)
   R.append([d,ri,num(r[9]),num(r[10]),num(r[11]),num(r[12]),num(r[13]),num(r[14]),num(r[15]),num(r[16]),num(r[17]),num(r[18]),round(num(r[19]),1),num(r[20]),num(r[21]),X(r[22]),X(r[23]),X(r[24]),X(r[25]),mins(r[26]),mins(r[27]),X(r[28]),X(r[29])])
 TS=old.get('ts') or ['< 1ph','< 3ph','< 5ph','< 10ph','10ph-60ph','> 60ph']; TR=list(old.get('tr') or [])
-T=[]; V=collections.Counter(); vd=set()
+T=[]; V=collections.Counter(); vd=set(); GI=collections.Counter()
 for r in wb['Viếng Thăm Chi Tiết'].iter_rows(min_row=1,values_only=True):
   if not isinstance(r[0],datetime.datetime) or r[0].strftime('%Y-%m')!=M or not r[10] or not isinstance(r[14],datetime.datetime) or (secs(r[14])==0 and secs(r[15])==0): continue
   ri=RI.get(r[6])
@@ -25,6 +25,7 @@ for r in wb['Viếng Thăm Chi Tiết'].iter_rows(min_row=1,values_only=True):
   d=r[0].day; vd.add(d); kh=str(r[10]).strip(); c=CC.get(kh)
   if c is None: CC[kh]=c=len(D['custCodes']); D['custCodes'].append(kh); D['custInfo'].append([r[11] or '',r[13] or '',r[12] or '','',''])
   il=1 if r[28]=='x' else 0; lan=int(r[9] or 1)
+  if il and r[33]=='x': GI[(d,ri)]+=1
   if num(r[30])>0: V[(d,ri,0 if il else 1,lan)]+=1
   sl=TS.index(r[37]) if r[37] in TS else -1
   lk=str(r[47] or '')
@@ -38,6 +39,8 @@ for r in wb['Viếng Thăm Chi Tiết'].iter_rows(min_row=1,values_only=True):
     rn=TR.index(rs)
   sf=r[16]; sf=round((sf-datetime.datetime(1899,12,30)).total_seconds())%86400 if isinstance(sf,datetime.datetime) else -1
   T.append([d,ri,c,secs(r[14]),secs(r[15]),lan,sl,lk,rn,il,sf])
+# Gom tọa độ: chỉ tính KH trong lịch (theo chi tiết viếng thăm)
+for x in R: x[11]=float(GI.get((x[0],x[1]),0))
 T.sort(key=lambda x:(x[1],x[0],x[3]))
 K={'r':R,'v':[[a,b,c,e,n] for (a,b,c,e),n in sorted(V.items())],'kd':sorted(kd),'vd':sorted(vd),'t':T,'ts':TS,'tr':TR,'miss':sorted(kd-vd)}
 print('KLR',M,'route-days',len(R),'days KLR',K['kd'][-1:],'visit',K['vd'][-1:],'visits',len(T),'unknown routes',unk)
