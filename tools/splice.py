@@ -1,18 +1,40 @@
 # Splice one NPP's current-month Rawdata (xlsx) into DATA, re-encoding every rawdata-derived array for that NPP's routes.
 import pandas as pd, json, collections, re, sys, unicodedata, datetime
-SRC, NPP = sys.argv[1], sys.argv[2]
-P='/home/claude/sdo-de.html'
+SRC = sys.argv[1]; NPP = sys.argv[2] if len(sys.argv)>2 else 'auto'; P_ = sys.argv[3] if len(sys.argv)>3 else None
+P=P_ or '/home/claude/sdo-de.html'
 html=open(P,encoding='utf8').read(); i=html.index('const DATA = '); j=html.index(';</script>',i); D=json.loads(html[i+13:j])
 nf=lambda v: unicodedata.normalize('NFC',v) if isinstance(v,str) else v
-d=pd.read_excel(SRC,dtype=object); d.columns=[nf(c) for c in d.columns]
+if SRC.lower().endswith('.csv'):
+  d=pd.read_csv(SRC,dtype=str,encoding='utf-8-sig'); d.columns=[nf(c) for c in d.columns]
+  def pdt(v):
+    v=str(v).strip()
+    if re.fullmatch(r'\d+(\.\d+)?',v): return datetime.datetime(1899,12,30)+datetime.timedelta(days=int(float(v)))
+    try: return datetime.datetime.strptime(v.split(' ')[0],'%m/%d/%Y')
+    except Exception: return pd.NaT
+  for c in ['Ngày (Đơn Hàng)','Ngày hóa đơn','Ngày mở mới']: d[c]=d[c].map(pdt)
+  d['Trái Tuyến']=d['Trái Tuyến'].map(lambda v: str(v).strip().lower()=='true')
+else:
+  d=pd.read_excel(SRC,dtype=object); d.columns=[nf(c) for c in d.columns]
+  d['Trái Tuyến']=d['Trái Tuyến'].map(lambda v: v is True or str(v).strip().lower()=='true')
 for c in d.columns:
   if d[c].dtype==object: d[c]=d[c].map(nf)
+if NPP=='auto': NPP=d['Tên NPP'].dropna().iloc[0]
 d=d[d['Tên NPP']==NPP].copy()
 M=D['dates'][-1][:7]; y,mo=map(int,M.split('-'))
 d=d[d['Ngày (Đơn Hàng)'].map(lambda t: t.year==y and t.month==mo)]
 CC={c:i for i,c in enumerate(D['custCodes'])}; RI={r['code']:i for i,r in enumerate(D['routes'])}; SK={n:i for i,n in enumerate(D['skuNames'])}
 miss_r=set(d['Mã Route'])-set(RI); miss_s=set(d['Tên SP'])-set(SK)
-if miss_r or miss_s: print('UNKNOWN routes',miss_r,'skus',miss_s); sys.exit(1)
+if miss_s:  # SKU mới: lấy thông tin của SKU gốc (bỏ đuôi Mới / Tết / khuyến mãi), không có thì tạo từ Rawdata
+  BRN=D['brands']; CATS=D['cats']; low={n.lower():k for k,n in enumerate(D['skuNames'])}
+  for n in sorted(miss_s):
+    r=d[d['Tên SP']==n].iloc[0]; base=re.sub(r'\s*(-\s*)?(mới|tết|tet|bao bì.*|nhãn.*|nắp.*|khuyến m.*)$','',n,flags=re.I).strip(); k0=low.get(base.lower())
+    if k0 is not None: sb,sc,sg=D['skuBrand'][k0],D['skuCat'][k0],D['skuGrp'][k0]
+    else:
+      b=str(r['Nhãn Hàng'] or ''); bi=BRN.index(b) if b in BRN else len(BRN)-1
+      sb=[bi,str(r['Pack Size'] or ''),str(r['Pack Type'] or '')]; sc=[CATS.index(r['Tên Ngành Hàng']) if r['Tên Ngành Hàng'] in CATS else CATS.index('KHÁC'),str(r['SKU'] or '')]; sg=max(D['skuGrp'])+1
+    SK[n]=len(D['skuNames']); D['skuNames'].append(n); D['skuBrand'].append(sb); D['skuCat'].append(sc); D['skuGrp'].append(sg)
+    print('SKU mới',n,'← gốc',D['skuNames'][k0] if k0 is not None else '(tạo mới)')
+if miss_r: print('UNKNOWN routes',miss_r); sys.exit(1)
 NR={i for i,r in enumerate(D['routes']) if r['npp']==NPP}
 # new customers
 LH={}
@@ -49,7 +71,7 @@ D['events']=drop('events',1)+[[int(a),int(b),int(c),f] for (a,b,c),f in F.items(
 g=d.groupby(['ri','di','cat']).agg(q=('q','sum'),r=('DS Sau Chiết Khấu /KM',lambda s: num(s).sum()))
 D['vol']=drop('vol',0)+[[int(a),int(b),int(c),rd(x.q),int(round(x.r))] for (a,b,c),x in g.iterrows() if x.q or x.r]
 D['ord']=drop('ord',0)+[[int(a),int(b),int(n)] for (a,b),n in d.groupby(['ri','di'])['Mã Đơn Hàng'].nunique().items()]
-od=d.groupby(['ri','di','Mã Đơn Hàng'])['Trái Tuyến'].agg(lambda s: bool(s.fillna(False).astype(bool).any()))
+od=d.groupby(['ri','di','Mã Đơn Hàng'])['Trái Tuyến'].agg(lambda s: bool(s.any()))
 out=od.groupby(level=[0,1]).sum(); ln=d.groupby(['ri','di']).size()
 D['ordx']=drop('ordx',0)+[[int(a),int(b),int(out.get((a,b),0)),int(n)] for (a,b),n in ln.items()]
 D['aqua']=drop('aqua',0)+[[int(a),int(b),rd(v)] for (a,b),v in d[d['Nhãn Hàng']=='AQUAFINA'].groupby(['ri','di'])['q'].sum().items() if v]
