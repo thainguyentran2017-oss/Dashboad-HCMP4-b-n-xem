@@ -20,6 +20,19 @@ for r in B['routes']:
     x[11]='' if x[3] not in ('D','E') else ('Đã mua' if f&8 else 'Chưa mua')
     x[12]='Đã mua' if f&1 else 'Chưa mua'; x[13]='Đã mua' if f&4 else 'Chưa mua'
     for k in (14,15,16,17): x[k]='Có' if k in has[c] else 'Chưa'
+# CCTB · số lần (ngày) đạt ảnh AI trong tháng theo loại (tủ, CVS, Tea, AQF); KH có nhiều tài sản cùng loại lấy tài sản ít lần đạt nhất; KH không có CCTB loại đó để trống
+M=B['month']; A=(D.get('ai') or {}).get(M); CT={}
+for x in (D.get('cctb') or {}).get(M, []): CT[CC[x[0]]]=x[2:6]
+if A:
+  per=collections.defaultdict(list)
+  for c,ri,t,qr,seg,mk in A['a']:
+    per[(CC[c],0 if t==4 else t)].append(bin(mk).count('1'))
+  for r in B['routes']:
+    for x in r['rows']:
+      ct=CT.get(x[0])
+      for k,t in [(6,0),(7,1),(8,2),(9,3)]:
+        x[k]=(min(per[(x[0],t)]) if per.get((x[0],t)) else 0) if ct and ct[t] else ''
+  B['aiAsof']=str(A['asof']).zfill(2)+'/'+M[5:]
 last=D['rawLast']['d'].get('BINH HONG') or D['dates'][-1]; B['asof']=last[8:10]+'/'+last[5:7]
 json.dump(B,open(F,'w'),ensure_ascii=False,separators=(',',':'))
 print('asof',B['asof'],'brands',BR)
