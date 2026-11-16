@@ -19,7 +19,9 @@ for kh,o in K.items():
   ok=1 if o['s1']=='Da Duyet' else 0
   note='' if not pend else ' · '.join(n+' chờ duyệt' for n in pend) if all(o['s'+str(k)] for k in (1,2)) or pend else ''
   if not o['s1']: note=(note+' · ' if note else '')+'Chưa đăng ký LRB-AQF'
-  rows.append([CC[kh],o['ri'],o['lh'],o['t1'],o['t2'],0,0,ok,note])
+  V={'Da Duyet':'Đã duyệt','Cho Duyet':'Chờ duyệt'}; a=V.get(o['s1'],o['s1']); b=V.get(o['s2'],o['s2'])
+  st=a if a==b else ' · '.join(x for x in [('AQF: '+a) if a else '',('CAN: '+b) if b else ''] if x)
+  rows.append([CC[kh],o['ri'],o['lh'],o['t1'],o['t2'],0,0,ok,note,st])
 old={x[0]:x for x in D['titan'].get(M,[])}; new={x[0]:x for x in rows}
 add=[c for c in new if c not in old]; rem=[c for c in old if c not in new]; chg=[c for c in new if c in old and (old[c][3],old[c][4])!=(new[c][3],new[c][4])]
 print('KH',len(rows),'hợp lệ (LRB-AQF đã duyệt)',sum(x[7] for x in rows),'chờ duyệt có',sum(1 for x in rows if 'chờ' in x[8]),'bad routes',bad[:5],len(bad),'new codes',len(newc))
