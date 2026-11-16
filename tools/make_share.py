@@ -2,7 +2,7 @@
 import re, json, gzip, base64, sys, os
 H=os.path.dirname(os.path.abspath(__file__))
 SRC=sys.argv[1] if len(sys.argv)>1 else '/home/claude/sdo-de.html'; OUT=sys.argv[2] if len(sys.argv)>2 else '/home/claude/sdo-de-share.html'
-ids=['tbXls','tbMsg','tbLXls','tbLMsg','a5Xls','a5Msg','a5LXls','a5LMsg','gLXls','gLMsg','c3Xls','c3Msg','ttXls','ttMsg','eLXls','eLMsg','sLCsv','dLCsv','kLCsv','aLXls','tLXls','lLXls','sExport','kExport','kTXls','rLXls','rLMsg','ktXls','ktMsg','ckvXls','ckvMsg','bhXls','bhMsg','acXls','acMsg','invXls','invMsg','nChartExport','sChartExport','dChartExport','kChartExport','aLMsg','tLMsg','lLMsg','sExpMsg','kExpMsg','rTtXls','rTtMsg','rVXls','rVMsg','bhkXls','nkXls','uXls','uMsg']
+ids=['tbNXls','tbNMsg','tbXls','tbMsg','tbLXls','tbLMsg','a5Xls','a5Msg','a5LXls','a5LMsg','gLXls','gLMsg','c3Xls','c3Msg','ttXls','ttMsg','eLXls','eLMsg','sLCsv','dLCsv','kLCsv','aLXls','tLXls','lLXls','sExport','kExport','kTXls','rLXls','rLMsg','ktXls','ktMsg','ckvXls','ckvMsg','bhXls','bhMsg','acXls','acMsg','invXls','invMsg','nChartExport','sChartExport','dChartExport','kChartExport','aLMsg','tLMsg','lLMsg','sExpMsg','kExpMsg','rTtXls','rTtMsg','rVXls','rVMsg','bhkXls','nkXls','uXls','uMsg']
 LOG_URL="https://script.google.com/macros/s/AKfycbxjaDGoUyeiNEtmWPvxLbzUygTUUvOq_KhR005LwWNg-j33U1GQyVnKbM9v2bhvtkex/exec"
 s=open(SRC,encoding='utf8').read()
 def rep(a,b,n=1):
