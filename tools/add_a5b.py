@@ -2,7 +2,11 @@
 import pandas as pd, json, sys, collections
 SRC=sys.argv[1]; APPLY=len(sys.argv)>2; P='/home/claude/sdo-de.html'
 s=open(P,encoding='utf8').read(); i=s.index('const DATA = '); j=s.index(';</script>',i); D=json.loads(s[i+13:j])
-d=pd.read_excel(SRC,sheet_name='DPM',header=1,dtype=str).fillna(''); d=d[d['Mã Khách Hàng'].str.strip()!='']
+for h in (1,3,0,2):
+  d=pd.read_excel(SRC,sheet_name='DPM',header=h,dtype=str).fillna('')
+  if 'Mã Khách Hàng' in d.columns: break
+d=d.rename(columns={c:'Chỉ tiêu' for c in d.columns if str(c).startswith('Chỉ Tiêu') or str(c)=='Chỉ tiêu'})
+d=d[d['Mã Khách Hàng'].str.strip()!='']
 CC={c:k for k,c in enumerate(D['custCodes'])}; RI={r['code']:k for k,r in enumerate(D['routes'])}
 old={(D['custCodes'][x[0]],D['routes'][x[1]]['code']):x for x in D['a5']['rows']}
 rows=[]; bad=[]; newc=0
