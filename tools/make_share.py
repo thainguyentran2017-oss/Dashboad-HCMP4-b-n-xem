@@ -20,6 +20,9 @@ rep("const VIEW_LOG_URL = '';","const VIEW_LOG_URL = "+json.dumps(LOG_URL)+";")
 rep("(async () => { try { dl = await window.claude?.use?.('downloads'); } catch(e){ dl = null; } dlReady = true; })();","dlReady = true; // view-only copy: no downloads")
 i=s.index('<script>\nconst DATA = '); j=s.index('\n',i+9); line=s[i+9:j]
 k=line.index(';</script>'); D=json.loads(line[13:k]); D.pop('inv',None)
+_kt='/home/claude/data/klrt2026-10.js'  # KLR T10 chi tiết viếng thăm tách ra file riêng ở bản chính → gộp lại cho bản xem
+if os.path.exists(_kt) and '2026-10' in D.get('klr',{}) and 't' not in D['klr']['2026-10']:
+  _t=open(_kt,encoding='utf8').read(); D['klr']['2026-10']['t']=json.loads(_t[_t.index('=')+1:].rstrip().rstrip(';'))
 assert line.endswith('<script>'), line[-80:]
 gz=lambda t: base64.b64encode(gzip.compress(t.encode('utf8'),9)).decode()
 ext=open(os.path.join(H,'ext_old.js'),encoding='utf8').read()
