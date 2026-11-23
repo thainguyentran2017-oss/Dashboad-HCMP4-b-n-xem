@@ -111,7 +111,8 @@ for key,cnt in [('tt','minQ'),('cb','set')]:
   X=D[key]; code=X['code']; per=X[cnt]
   if key=='cb' and M not in X['ms']: continue
   rows=[]
-  for (o,c,ri,day),g in d[d.ctkm.map(lambda s: code in s)].groupby(['Mã Đơn Hàng','c','ri','day']):
+  codes=set(X.get('codes') or [code])
+  for (o,c,ri,day),g in d[d.ctkm.map(lambda s: bool(s&codes))].groupby(['Mã Đơn Hàng','c','ri','day']):
     q=g.qd.sum(); rows.append([int(c),int(ri)]+([X['ms'].index(M)] if key=='cb' else [])+[int(day),rd(q),int(q//per)])
   X['ev']=[e for e in X['ev'] if not (e[1] in NR and (key!='cb' or e[2]==X['ms'].index(M)))]+rows
 # customer channel sets / open dates
