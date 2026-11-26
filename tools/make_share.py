@@ -12,12 +12,15 @@ def rep(a,b,n=1):
 s=s.replace('[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>','[hidden]:not([hidden=until-found i]){display:none!important}\n</style></head><body>',1)
 s=re.sub(r'<!--MAIN-ONLY-->.*?<!--/MAIN-ONLY-->','',s,flags=re.S)
 s=re.sub(r'/\*VW-MAIN\*/.*?/\*VW-MAIN-END\*/','',s,flags=re.S)
-css=','.join('#'+i for i in ids)+'{display:none!important}#kload{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink2);font-size:15px;z-index:99}'
+# bản xem cho phép tải Excel / xuất ảnh: chỉ ẩn nút nào mà phần code xử lý đã bị bỏ khỏi bản xem
+ids=[i for i in ids if not ((i.endswith('LCsv') and "px + 'LCsv'" in s) or (i.endswith('ChartExport') and "+ 'ChartExport'" in s)) and ("$('"+i+"')") not in s and ('"'+i+'"') not in s.split('<script>',1)[-1]]
+print('share: hidden buttons',ids)
+css=(','.join('#'+i for i in ids)+'{display:none!important}' if ids else '')+'#kload{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink2);font-size:15px;z-index:99}'
 rep('<title>Dashboard Tracking HCMP4</title>\n<style>\n','<title>Dashboard HCMP4 Bản xem</title>\n<style>\n'+css+'\n')
 rep("const ACC_OWNER = true;","const ACC_OWNER = false;")
 rep("const VIEW_GATE = false; ","const VIEW_GATE = true; ")
 rep("const VIEW_LOG_URL = '';","const VIEW_LOG_URL = "+json.dumps(LOG_URL)+";")
-rep("(async () => { try { dl = await window.claude?.use?.('downloads'); } catch(e){ dl = null; } dlReady = true; })();","dlReady = true; // view-only copy: no downloads")
+# bản xem: giữ quyền tải file (downloads) như bản chính
 i=s.index('<script>\nconst DATA = '); j=s.index('\n',i+9); line=s[i+9:j]
 k=line.index(';</script>'); D=json.loads(line[13:k]); D.pop('inv',None)
 _kt='/home/claude/data/klrt2026-10.js'  # KLR T10 chi tiết viếng thăm tách ra file riêng ở bản chính → gộp lại cho bản xem
