@@ -39,6 +39,7 @@ for m, o in out.items():
   for g in NEW: kh.update(pc.get(g, []))
   o['nk'] = len(kh); o['nq'] = round(sum(o['p'].get(g, [0])[0] for g in NEW), 1)
   o['p'] = {g: v for g, v in o['p'].items() if g in NEW}
-D['yy'] = {'npp': NPP, 'cur': CUR, 'm': out, 'new': [[g, nm[g], SB[D['skuNames'].index(nm[g])][0]] for g in NEW], 'y25': sorted(m for m in out if m < '2026')}
+TG = {m: round(sum(v[10] for c, v in K.items() if c in {R[x]['code'] for x in BH}), 1) for m, K in (D.get('kpi') or {}).items()}
+D['yy'] = {'npp': NPP, 'tg': TG, 'cur': CUR, 'm': out, 'new': [[g, nm[g], SB[D['skuNames'].index(nm[g])][0]] for g in NEW], 'y25': sorted(m for m in out if m < '2026')}
 s = s[:i] + json.dumps(D, ensure_ascii=False, separators=(',', ':')) + s[j:]; open(P, 'w', encoding='utf8').write(s)
 print({m: (o['q'], o['aso'], o.get('mtd')) for m, o in out.items()}); print('SP mới', len(NEW), [nm[g] for g in NEW[:12]])
