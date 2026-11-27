@@ -1,7 +1,7 @@
 # So sánh 2025–2026 NPP Bình Hồng (chỉ bản chính): DATA.yy từ DATA.prev (data/p*.js) + tháng hiện tại
 import json, glob, os, collections, datetime, calendar, sys
 P = '/home/claude/sdo-de.html'; NPP = 'BINH HONG'
-SRC = [os.path.join(os.path.dirname(os.path.abspath(__file__)), 'artifact-files/5be14cf6-68f9-490e-b618-32570abc5ec6/data'), '/home/claude/dashboad-hcmp4-b-n-xem/data']
+SRC = ['/home/claude/data', '/home/claude/dashboad-hcmp4-b-n-xem/data']
 s = open(P, encoding='utf8').read(); i = s.index('const DATA = ') + 13; j = s.index(';</script>', i); D = json.loads(s[i:j])
 R = D['routes']; BH = {k for k, r in enumerate(R) if r['npp'] == NPP}; G = D['skuGrp']; SB = D['skuBrand']
 def loadp(m):
