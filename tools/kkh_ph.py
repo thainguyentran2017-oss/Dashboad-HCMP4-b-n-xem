@@ -9,7 +9,8 @@ INL = {DT['custCodes'][x[0]] for x in DT['kkh'][M] if DT['routes'][x[1]]['code']
 CR = {DT['custCodes'][x[0]]: x[1] for x in DT['kkh'][M]}
 sc = collections.defaultdict(list)
 for l in open(os.path.join(SP, 'kkh_score.tsv'), encoding='utf8').read().splitlines():
-  c, d, ok, why = (l.split('\t') + [''])[:4]; sc[(c, d)].append((int(ok), why))
+  f = (l.split('\t') + ['', ''])[:5]; c, d, ok, why, kk = f; sc[(c, d)].append((int(ok), why)); 
+  if kk: sc[kk] = (int(ok), why)
 use = collections.Counter(); ph = []; img = {}
 # tuyến của KH ngoài danh sách: lấy tuyến có KH này trong dữ liệu bán hàng (cust → route qua bảng ctMonth nếu có), mặc định theo ảnh
 R2 = {}
@@ -18,7 +19,7 @@ for f in sorted(glob.glob(os.path.join(D, 'meta*.txt'))):
   for l in open(f):
     k, c, dt, h, o = l.strip().split('|'); key = 'p%02d_%02d' % (pg, int(k))
     day = '%s-%s' % (Y, dt[:5]); L = sc.get((c, day), []); n = use[(c, day)]; use[(c, day)] += 1
-    ok, why = L[min(n, len(L) - 1)] if L else (0, '')
+    ok, why = sc[key] if key in sc else L[min(n, len(L) - 1)] if L else (0, '')
     ri = CR.get(c)
     if ri is None: ri = RI.get(sys.argv[0] and '197RP35006')  # 7 KH ngoài DS đều thuộc tuyến 35006/35008: sửa dưới bằng bảng tay
     ph.append([CC[c], ri, '%s %s' % (day, dt[6:]), ok, why, key, 1 if c in INL else 0])
