@@ -5,21 +5,21 @@ R = CalamineWorkbook.from_path(SRC).get_sheet_by_name('Danh sách chi tiết').t
 h = R[5]; assert str(h[37]).startswith('Tháng 1') and str(h[73]).startswith('Tháng 1'), h[37]
 num = lambda v: float(v) if isinstance(v, (int, float)) else 0.0
 grp = lambda p: 'vt' if p.startswith('Vip') else 'ti' if p.startswith('Titan') else 'cl' if p.startswith('Silver') or p.startswith('Club') else None
-M = {}
-for mi in range(12):
-  o = {g: {'n': 0, 'ok': 0, 't': 0.0, 'a': 0.0, 'lv': {}} for g in ('cl', 'ti', 'vt', 'all')}; any_ = False
-  for r in R[7:]:
-    if str(r[4]).strip() != NPP or not str(r[8]).strip().upper().startswith('CT'): continue
+s0 = open(P, encoding='utf8').read(); i0 = s0.index('const DATA = ') + 13; j0 = s0.index(';</script>', i0); D0 = json.loads(s0[i0:j0])
+RI = {r['code']: k for k, r in enumerate(D0['routes'])}; TL = []; rows = []; MX = 0
+for r in R[7:]:
+  if str(r[4]).strip() != NPP or not str(r[8]).strip().upper().startswith('CT'): continue
+  ri = RI.get(str(r[6]).strip(), -1); P_ = ''; K = ''; T = []; A = []; LV = []
+  for mi in range(12):
     p = str(r[37 + mi]).strip(); g = grp(p)
-    if not g: continue
-    any_ = True; ok = str(r[73 + mi]).strip() == 'Đạt'; t = num(r[49 + mi]); a = num(r[61 + mi])
-    for k in (g, 'all'):
-      x = o[k]; x['n'] += 1; x['ok'] += ok; x['t'] += t; x['a'] += a
-    o[g]['lv'][p] = o[g]['lv'].get(p, 0) + 1
-  if any_:
-    for x in o.values(): x['t'] = round(x['t'], 1); x['a'] = round(x['a'], 1)
-    M[str(mi + 1)] = o
+    P_ += {'cl': 'c', 'ti': 't', 'vt': 'v'}.get(g, '-'); K += '1' if g and str(r[73 + mi]).strip() == 'Đạt' else '0'
+    T.append(round(num(r[49 + mi]), 1) if g else 0); A.append(round(num(r[61 + mi]), 1) if g else 0)
+    if g and p not in TL: TL.append(p)
+    LV.append(TL.index(p) if g else -1)
+    if g: MX = max(MX, mi + 1)
+  if P_.strip('-'): rows.append([ri, str(r[8]).strip().upper(), P_, K, T, A, LV])
+print('KH', len(rows), 'không khớp tuyến', sum(1 for x in rows if x[0] < 0), 'tháng', MX)
 s = open(P, encoding='utf8').read(); i = s.index('const DATA = ') + 13; j = s.index(';</script>', i); D = json.loads(s[i:j])
-D['loyM'] = {'npp': NPP, 'asof': ASOF, 'm': M}
+D['loyM'] = {'npp': NPP, 'asof': ASOF, 'mx': MX, 'tl': TL, 'rows': rows}
 s = s[:i] + json.dumps(D, ensure_ascii=False, separators=(',', ':')) + s[j:]; open(P, 'w', encoding='utf8').write(s)
-for k, o in M.items(): print(k, {g: (x['n'], x['ok'], round(x['a'])) for g, x in o.items()})
+
