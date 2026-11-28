@@ -22,7 +22,7 @@ rep("const VIEW_GATE = false; ","const VIEW_GATE = true; ")
 rep("const VIEW_LOG_URL = '';","const VIEW_LOG_URL = "+json.dumps(LOG_URL)+";")
 # bản xem: giữ quyền tải file (downloads) như bản chính
 i=s.index('<script>\nconst DATA = '); j=s.index('\n',i+9); line=s[i+9:j]
-k=line.index(';</script>'); D=json.loads(line[13:k]); D.pop('inv',None); D.pop('yy',None)
+k=line.index(';</script>'); D=json.loads(line[13:k]); D.pop('inv',None); D.pop('yy',None); D.pop('loyM',None)
 _kt='/home/claude/data/klrt2026-10.js'  # KLR T10 chi tiết viếng thăm tách ra file riêng ở bản chính → gộp lại cho bản xem
 if os.path.exists(_kt) and '2026-10' in D.get('klr',{}) and 't' not in D['klr']['2026-10']:
   _t=open(_kt,encoding='utf8').read(); D['klr']['2026-10']['t']=json.loads(_t[_t.index('=')+1:].rstrip().rstrip(';'))
