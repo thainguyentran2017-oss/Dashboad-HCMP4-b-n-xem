@@ -43,6 +43,19 @@ for m in months:
   o = {'q': round(q, 1), 'b': {str(b): round(v, 1) for b, v in qb.items()}, 'aso': len(ks), 'sku': sum(len(v) for v in ks.values()), 'ord': len(visit), 'ln': lines,
        'p': {str(g): [round(pq[g], 1), len(pk[g])] for g in pq}, 'pc': {str(g): sorted(pk[g]) for g in pk}}
   o['p'] = {str(g): v for g, v in o['p'].items()}
+  # bao phủ theo nhãn: số KH mua nhãn trong tháng
+  bk = collections.defaultdict(set)
+  for c, ri, di, sk, v in rows:
+    if v > 0: bk[SB[sk][0]].add(c)
+  o['bk'] = {str(b): len(v) for b, v in bk.items()}
+  # cùng kỳ năm trước của tháng đang chạy (cắt đến cùng ngày) để so "đến hiện tại"
+  if m == str(int(CUR[:4]) - 1) + CUR[4:]:
+    last = int(D['dates'][-1][8:]); cq = collections.Counter(); ck = collections.defaultdict(set); ca = set(); ct = 0
+    for c, ri, di, sk, v in rows:
+      if di + 1 > last: continue
+      ct += v; cq[SB[sk][0]] += v; ca.add(c)
+      if v > 0: ck[SB[sk][0]].add(c)
+    o['cut'] = {'d': last, 'q': round(ct, 1), 'aso': len(ca), 'b': {str(b): round(v, 1) for b, v in cq.items()}, 'bk': {str(b): len(v) for b, v in ck.items()}}
   if m == CUR:
     y, mo = int(m[:4]), int(m[5:]); last = int(D['dates'][-1][8:]); o['mtd'] = last; o['wd'] = sund(y, mo, last); o['wdt'] = sund(y, mo)
   out[m] = o
